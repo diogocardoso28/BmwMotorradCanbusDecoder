@@ -13,13 +13,14 @@ def get_engine_temp(bytes):
     return byte * 0.75 - 25
 
 
-def get_rear_brake_lever(bytes):
-    #D6 Byte
-    byte = bytes[6]
-    # Mask the last 4 bits using bitwise AND with 0xF (binary 1111)
-    # last_4_bits = byte & 0xF
-    first_4_bits = byte >> 4
-    return first_4_bits == 3
+def get_brake_lever(bytes):
+    #D0 Byte
+    byte = bytes[0]
+    match byte:
+        case 0x81:
+            return "OFF"
+        case 0xa1:
+            return "ON"
 
 
 def get_wonder_wheel_mvt(bytes):
@@ -61,6 +62,60 @@ def get_odometer(bytes):
     return (bytes[3] << 16) | (bytes[2] << 8) | bytes[1]
 
 
+def get_rpm(bytes):
+    #D3 
+    byte = bytes[3]
+    #Low nibble thousands
+    thousands = byte & 0x0f
+    #High nibble 16ths
+    theeths = byte >> 4
+    return f"{theeths}{thousands}"
+
+
+def get_throttle_pos(bytes):
+    #D5 byte
+    return round((bytes[5] / 255) * 100)
+
+
+def get_menu_btn(bytes):
+    #D2 byte
+    match bytes[2]:
+        case 0x00:
+            return "inactive"
+        case 0x20:
+            return "up"
+        case 0x10:
+            return "down"
+
+
+def get_blinker_signal(bytes):
+    print(bytes)
+    #D5 low nibble
+    match bytes[5]:
+        case 0x41:
+            return "OFF"
+        case 0x42:
+            return "LEFT"
+        case 0x44:
+            return "RIGHT"
+        case 0x45:
+            return "HAZARDS"
+
+
+def get_fuel_to_reserve(bytes):
+    #D3 byte
+    return (bytes[3] / 255) * 100
+
+
+def get_fuel_level(bytes):
+    #D0 high nibble
+    optn1 = bytes[0] >> 4
+    #D1 low nibble 
+    op2 = bytes[1] & 0x0F
+    print(f"D0 high: {optn1}; D1 low {op2}")
+    return op2
+
+
 # Create the main window
 root = tk.Tk()
 root.title("Motorrad Info")
@@ -92,7 +147,6 @@ textbox_water_temp.grid(row=1, column=1, padx=5, pady=5)
 water_temp_value = tk.StringVar()
 textbox_water_temp.config(textvariable=water_temp_value)
 
-
 #endregion
 
 #region Driving Mode
@@ -108,51 +162,153 @@ textbox_driving_mode.config(textvariable=driving_mode_value)
 
 #endregion
 
-#region Rear Brake
+#region Brake
 
-label_rear_brake = tk.Label(frame, text="Rear Brake:")
-label_rear_brake.grid(row=3, column=0, padx=5, pady=5)
+label_brake = tk.Label(frame, text="Brakes:")
+label_brake.grid(row=3, column=0, padx=5, pady=5)
 
-textbox_rear_brake = tk.Entry(frame)
-textbox_rear_brake.grid(row=3, column=1, padx=5, pady=5)
+textbox_brake = tk.Entry(frame)
+textbox_brake.grid(row=3, column=1, padx=5, pady=5)
 
-rear_brake_value = tk.StringVar()
-textbox_rear_brake.config(textvariable=rear_brake_value)
+brake_value = tk.StringVar()
+textbox_brake.config(textvariable=brake_value)
 
 #endregion
 
+#region RPM
+
+label_rpm = tk.Label(frame, text="RPM:")
+label_rpm.grid(row=4, column=0, padx=5, pady=5)
+
+textbox_rpm = tk.Entry(frame)
+textbox_rpm.grid(row=4, column=1, padx=5, pady=5)
+
+rpm_value = tk.StringVar()
+textbox_rpm.config(textvariable=rpm_value)
+
+#endregion
+
+#region throttle POS
+
+label_throttle_pos = tk.Label(frame, text="Throttle Position:")
+label_throttle_pos.grid(row=5, column=0, padx=5, pady=5)
+
+textbox_throttle_pos = tk.Entry(frame)
+textbox_throttle_pos.grid(row=5, column=1, padx=5, pady=5)
+
+throttle_pos_value = tk.StringVar()
+textbox_throttle_pos.config(textvariable=throttle_pos_value)
+
+#endregion
+
+#region Menu Btn
+
+label_menu_btn = tk.Label(frame, text="Menu Button:")
+label_menu_btn.grid(row=6, column=0, padx=5, pady=5)
+
+textbox_menu_btn = tk.Entry(frame)
+textbox_menu_btn.grid(row=6, column=1, padx=5, pady=5)
+
+menu_btn_value = tk.StringVar()
+textbox_menu_btn.config(textvariable=menu_btn_value)
+
+#endregion
+
+#region wonder wheel
+
+label_wonder_wheel = tk.Label(frame, text="Wonder Wheel:")
+label_wonder_wheel.grid(row=7, column=0, padx=5, pady=5)
+
+textbox_wonder_wheel = tk.Entry(frame)
+textbox_wonder_wheel.grid(row=7, column=1, padx=5, pady=5)
+
+wonder_wheel_value = tk.StringVar()
+textbox_wonder_wheel.config(textvariable=wonder_wheel_value)
+
+#endregion
+
+#region blinker
+
+label_blinker = tk.Label(frame, text="Blinker:")
+label_blinker.grid(row=8, column=0, padx=5, pady=5)
+
+textbox_blinker = tk.Entry(frame)
+textbox_blinker.grid(row=8, column=1, padx=5, pady=5)
+
+blinker_value = tk.StringVar()
+textbox_blinker.config(textvariable=blinker_value)
+
+#endregion
+
+#region fuel level
+label_fuel_level = tk.Label(frame, text="Fuel Level:")
+label_fuel_level.grid(row=9, column=0, padx=5, pady=5)
+
+textbox_fuel_level = tk.Entry(frame)
+textbox_fuel_level.grid(row=9, column=1, padx=5, pady=5)
+
+fuel_level_value = tk.StringVar()
+textbox_fuel_level.config(textvariable=fuel_level_value)
+#endregion
+
+#region fuel to reserve
+
+label_fuel_reserve = tk.Label(frame, text="Fuel to reserve:")
+label_fuel_reserve.grid(row=10, column=0, padx=5, pady=5)
+
+textbox_fuel_reserve = tk.Entry(frame)
+textbox_fuel_reserve.grid(row=10, column=1, padx=5, pady=5)
+
+fuel_reserve_value = tk.StringVar()
+textbox_fuel_reserve.config(textvariable=fuel_reserve_value)
+
+#endregion
 
 def receive_can_data():
+    last_wonder_wheel = 0
     #Connect to adapter
     bus = can.interface.Bus(interface='socketcan', channel='can0', bitrate=500000)
     for msg in bus:
         data = msg.data
         canID = msg.arbitration_id
         match canID:
-            #Engine Temp
+            #Engine Temp -> Working
             case 0x2bc:
                 water_temp_value.set(f"{get_engine_temp(data)}ºc")
                 # print(f"Temperatura Água: {eng_temp}")
-            #Brake lever and turn signals -> Check if it's true with realtime data
-            case 0x130:
-                rear_brake = get_rear_brake_lever(data)
-                rear_brake_value.set(f"{'ON' if rear_brake is True else 'OFF'}")
-                # print(f"Travão Traseiro: {rear_brake}")
-            #WonderWheel:
+            #Brake -> Working
+            case 0x2d2:
+                brake_value.set(get_brake_lever(data))
+            #WonderWheel and menu button: -> Working
             case 0x2a0:
                 wonder_wheel_mvt = get_wonder_wheel_mvt(data)
                 wonder_wheel = get_wonder_wheel(data)  #-> This is shady need to investigate
-                # print(f"Wonder: {wonder_wheel_mvt} -> rotations: {wonder_wheel}")
-            #Driving Mode
+                if wonder_wheel > last_wonder_wheel:
+                    #wheel UP
+                    wonder_wheel_value.set("UP")
+                elif wonder_wheel < last_wonder_wheel:
+                    #wheel down
+                    wonder_wheel_value.set("DOWN")
+                else:
+                    wonder_wheel_value.set(wonder_wheel_mvt)
+                last_wonder_wheel = wonder_wheel
+                menu_btn_value.set(get_menu_btn(data))
+            #Driving Mode -> Working
             case 0x2b4:
                 driving_mode = get_driving_mode(data)
                 driving_mode_value.set(driving_mode)
                 # print(f"Driving Mode: {driving_mode}")
-            #Odometer
+            #Odometer -> Working
             case 0x3f8:
-                print(data)
                 odo_value.set(f"{get_odometer(data)} Km")
-
+            #Trottle Position -> working
+            case 0x110:
+                throttle_pos_value.set(f"{get_throttle_pos(data)} %")
+            #Blinkers and fuel level -> Not Working
+            case 0x2d0:
+                blinker_value.set(get_blinker_signal(data)) # Works
+                fuel_level_value.set(get_fuel_level(data))
+                fuel_reserve_value.set(get_fuel_to_reserve(data))
 
 def start_can_thread():
     can_thread = threading.Thread(target=receive_can_data)
@@ -161,7 +317,7 @@ def start_can_thread():
 
 
 # Start the CAN thread when the program starts
-# start_can_thread()
+start_can_thread()
 
 # Run the Tkinter event loop
 root.mainloop()
